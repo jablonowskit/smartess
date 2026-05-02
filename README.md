@@ -1,16 +1,27 @@
-SmartESS — lekki klient w Pythonie do odczytu rejestrów Modbus z dataloggera SmartESS/Dessmonitor. Obsługuje tunelowanie Modbus RTU przez Modbus TCP (protokół specyficzny dla urządzenia) i zwraca wynik jako JSON.
+SmartESS — lekki klient w Pythonie do odczytu i zapisu rejestrów Modbus z dataloggera SmartESS/Dessmonitor. Obsługuje tunelowanie Modbus RTU przez Modbus TCP (protokół specyficzny dla urządzenia) i zwraca wynik jako JSON.
 
 Wymagania
 
 - Python 3.7+
+- Pliki `smartess_client.py` i `smartess_protocol.py` w tym samym katalogu lub dostępne w `PYTHONPATH`.
 
 Opis
 Skrypt `smartess_client.py`:
 
 - wysyła UDP notify do dataloggera (port domyślny 58899),
 - czeka na połączenie TCP od dataloggera (port domyślny 502),
-- tuneluje żądanie Modbus RTU (funkcja 3 — odczyt holding registers) przez protokół Modbus TCP i parsuje odpowiedź,
+- tuneluje żądanie Modbus RTU przez protokół Modbus TCP i parsuje odpowiedź,
+- obsługuje odczyt rejestrów (funkcja 3) oraz zapis wielu rejestrów (funkcja 0x10),
+- pozwala użyć pojedynczego wywołania CLI albo utrzymywanej sesji TCP przez `SmartESSSession`,
 - zwraca wynik jako JSON z timestampem.
+
+Nowe funkcjonalności w wersji 1.1.1:
+
+- zapis wielu rejestrów z CLI przez `--set`,
+- osobny moduł `smartess_protocol.py` z niskopoziomową obsługą protokołu,
+- utrzymywana sesja TCP przez `SmartESSSession` i `smartess_open_session(...)`,
+- opcjonalne użycie istniejącej sesji w `smartess_read(...)` i `smartess_write(...)`,
+- obsługa wartości dziesiętnych i heksadecymalnych w `--set`.
 
 Różnica względem Modbus
 
@@ -20,12 +31,15 @@ Różnica względem Modbus
 
 Użycie
 python smartess_client.py <IP_DATALOGGERA> <REGISTER> [--count N] [--localip X.X.X.X] [--tcp-port 502] [--udp-port 58899] [--debug]
+python smartess_client.py <IP_DATALOGGERA> <REGISTER> --set "100,200" [--localip X.X.X.X] [--tcp-port 502] [--udp-port 58899] [--debug]
 
-Przykład
+Przykłady
 python smartess_client.py 192.168.1.50 100 --count 2
+python smartess_client.py 192.168.1.50 326 --set "230,250"
 
 Wyjście przykładowe:
 {"ts":"2025-09-30T12:00:00","100":123,"101":-5}
+{"ts":"2025-09-30T12:00:05","written_base":326,"written_qty":2,"values":[230,250]}
 
 Argumenty
 
@@ -36,6 +50,7 @@ Argumenty
 - `--tcp-port`: port TCP (domyślnie 502)
 - `--udp-port`: port UDP (domyślnie 58899)
 - `--debug`: włącza dodatkowe logi
+- `--set`: zapisuje wartości do kolejnych rejestrów od adresu `REGISTER`, np. `"230,250"` albo `"0x00e6,0x00fa"`
 
 Bezpośredni odczyt (omijanie chmury)
 
@@ -47,15 +62,15 @@ Bezpośredni odczyt (omijanie chmury)
 
 Funkcje (skrót)
 
-- `send_udp_notify(...)` — wysyła UDP notify do dataloggera
-- `wait_for_datalogger_connection(...)` — otwiera nasłuch TCP i akceptuje połączenie
-- `build_tunneled_request(...)` — buduje tunelowaną ramkę Modbus
-- `read_one_modbus_tcp_frame(...)` — odbiera jedną ramkę Modbus/TCP
-- `parse_tunneled_response(...)` — parsuje odpowiedź tunelowaną
-- `smartess_read(...)` — główna funkcja używana przez CLI
+- `smartess_read(...)` — jednorazowy odczyt, zgodny z poprzednim interfejsem
+- `smartess_write(...)` — jednorazowy zapis wielu rejestrów
+- `smartess_open_session(...)` — otwiera utrzymywaną sesję TCP
+- `SmartESSSession` — sesja do wielu odczytów/zapisów bez ponownego UDP notify i accept TCP
+- `smartess_protocol.py` — niskopoziomowe funkcje protokołu: UDP notify, TCP accept, CRC, budowa ramek i parsowanie odpowiedzi
 
 Wersja
 
+- `1.1.1` — refaktor warstwy protokołu do `smartess_protocol.py`, obsługa zapisu rejestrów, opcjonalna utrzymywana sesja TCP i rozszerzony opis użycia.
 - `1.0` — pierwsze wydanie: podstawowy klient do odczytu rejestrów z dataloggera SmartESS/Dessmonitor.
 
 Contributing
